@@ -1,0 +1,55 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+*.whl
+
+# Virtual Environment
+venv/
+.venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment
+.env
+
+# Gizli veri klasörü (input/output)
+.pdf_data/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Logs
+*.log
+
+# PyQt6
+*.ui.bak
+
+# Pytest
+.pytest_cache/
+htmlcov/
+.coverage
+
+# Tesseract portable (büyük ikili dosyalar — build.py tarafından Program Files'dan kopyalanır)
+tesseract/
+
+# Nuitka/PyInstaller derleme çıktısı (OneDrive dışında: C:\Build\PDFToolKit)
+*.dist/
+*.build/
+PDFToolKit.exe.old
+
+# CI/CD
+*.spec

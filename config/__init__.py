@@ -1,0 +1,3 @@
+"""
+PDFToolKit - Konfigürasyon Paketi
+"""
