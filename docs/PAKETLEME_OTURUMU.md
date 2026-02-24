@@ -1,8 +1,34 @@
 # PDFToolKit — Paketleme Oturum Bağlamı
 
 > Bu dosya, yeni bir AI oturumu açıldığında "nerede kaldık" sorusunu yanıtlamak için tutulur.  
-> Güncellenme tarihi: 22 Şubat 2026  
-> Güncelleyen: GitHub Copilot (oturum özeti)
+> Güncellenme tarihi: 24 Şubat 2026  
+> Son oturum: Konuşma 5 — Git push tamamlandı, derleme bekleniyor.
+
+---
+
+## ‼️ KALDIĞIMIZ YER — HIZLI BAŞLANGIÇ
+
+**Son yapılan:** Git push başarılı — kaynak kod GitHub'da.  
+**Sıradaki adım:** Nuitka ile EXE derleme → `python build.py`
+
+Yeni bir oturumda şunu söyle:
+> "PAKETLEME_OTURUMU.md dosyasını oku. Kaldığımız yerden devam edelim."
+
+### Yapılacak 2 Adım Kaldı:
+
+```
+1. [ ] python build.py çalıştır   → EXE + ZIP üretir (C:\Build\PDFToolKit)
+       - İlk seferde MinGW64 indirilecek (~60 MB, "yes" de)
+       - Derleme 15-30 dakika sürebilir
+       - Çıktı: C:\Build\PDFToolKit\PDFToolKit\PDFToolKit.exe
+
+2. [ ] GitHub Releases'a yükle    → Kullanıcıların indireceği link oluşur
+       - github.com/hobibilgisi/PDFToolKit → Releases → Create new release
+       - Tag: v0.2.0
+       - Başlık: PDFToolKit v0.2.0
+       - PDFToolKit_v0.2.0.zip dosyasını sürükle-bırak ile yükle
+       - Yayınla
+```
 
 ---
 
@@ -167,7 +193,7 @@ subprocess.run(cmd, check=True)
 ### Aşama 1 — Altyapı Kurulumu ✅ TAMAMLANDI
 - [x] Nuitka 4.0.1 kuruldu
 - [x] `ordered-set`, `zstandard`, `imageio` kuruldu
-- [ ] MinGW64 indirilecek (ilk `build.py` çalışmasında otomatik, internet gerektirir, ~60 MB, bir kerelik)
+- [x] MinGW64 → ilk `build.py` çalışmasında otomatik inecek
 
 ### Aşama 2 — Kod Değişiklikleri ✅ TAMAMLANDI
 - [x] `config/settings.py` → gömülü Tesseract algılama + `set_skipped_version()` + `skipped_update_version`
@@ -177,11 +203,18 @@ subprocess.run(cmd, check=True)
 - [x] `build.py` → Nuitka derleme scripti (Tesseract kopyalama + ZIP oluşturma dahil)
 - [x] `.env.example` → kullanıcı yapılandırma şablonu
 
-### Aşama 3 — Derleme (SIRADAKI ADIM)
-- [ ] `updater.py`'deki `GITHUB_KULLANICI_ADIN` değerini gerçek GitHub adıyla değiştir
-- [ ] Tesseract portable'ı proje kökündeki `tesseract/` klasörüne koy
+### Aşama 2.5 — Tesseract + Git ✅ TAMAMLANDI (24 Şubat)
+- [x] Tesseract 5.4.0 portable → `tesseract/` klasörüne kopyalandı (eng, tur, osd)
+- [x] `.gitignore` oluşturuldu (tesseract/, .venv/, .env, __pycache__ vb. hariç)
+- [x] `updater.py` → `GITHUB_OWNER = "hobibilgisi"`, `GITHUB_REPO = "PDFToolKit"`
+- [x] `build.py` → sistem Tesseract fallback'i eklendi
+- [x] `git init` + `git remote add origin https://github.com/hobibilgisi/PDFToolKit.git`
+- [x] İlk commit: `v0.2.0: İlk sürüm` (49 dosya, 7169 satır)
+- [x] `git push -u origin main` ✅ BAŞARILI
+
+### Aşama 3 — Derleme ⏳ SIRADA
 - [ ] `python build.py` çalıştır (MinGW64 sorusuna "yes" de)
-- [ ] Test derlemesi: `C:\Build\PDFToolKit\PDFToolKit.exe`
+- [ ] Test: `C:\Build\PDFToolKit\PDFToolKit\PDFToolKit.exe`
 
 ### Aşama 4 — Test (DERLEME SONRASI)
 - [ ] Temiz bir Windows ortamında (ya da Python kurulu olmayan makinede) EXE'yi test et
@@ -192,8 +225,7 @@ subprocess.run(cmd, check=True)
 ### Aşama 5 — Antivirüs ve Dağıtım
 - [ ] VirusTotal tarama: https://www.virustotal.com
 - [ ] Microsoft Security Intelligence whitelist: https://www.microsoft.com/en-us/wdsi/filesubmission
-- [ ] GitHub private repo aç, Releases'a ZIP yükle
-- [ ] `updater.py`'deki `GITHUB_OWNER` ve `GITHUB_REPO` değerlerini güncelle
+- [ ] GitHub Releases'a ZIP yükle
 - [ ] README.txt oluştur (SmartScreen uyarısı açıklaması dahil)
 
 ### Aşama 6 — Inno Setup (İsteğe Bağlı, Sonra)
