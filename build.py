@@ -195,11 +195,10 @@ def main():
     # (main.py -> main.dist, not PDFToolKit.dist)
     stem = Path(MAIN_SCRIPT).stem  # "main"
     nuitka_out = OUTPUT_DIR / f"{stem}.dist"
-    if nuitka_out.exists() and not DIST_DIR.exists():
-        nuitka_out.rename(DIST_DIR)
-    elif nuitka_out.exists():
-        # Her iki klasör de varsa, yenisiyle değiştir
-        shutil.rmtree(DIST_DIR)
+    if nuitka_out.exists():
+        if DIST_DIR.exists():
+            shutil.rmtree(DIST_DIR)
+        DIST_DIR.parent.mkdir(parents=True, exist_ok=True)
         nuitka_out.rename(DIST_DIR)
 
     # Ek dosyaları kopyala

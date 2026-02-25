@@ -14,12 +14,15 @@ from dotenv import load_dotenv
 
 def _get_base_dir() -> Path:
     """Uygulama kök dizinini döndürür. EXE ise EXE'nin klasörü, değilse proje kökü."""
+    # Nuitka standalone
+    nuitka_dir = globals().get('__nuitka_binary_dir')
+    if nuitka_dir:
+        return Path(nuitka_dir).resolve()
+    # PyInstaller veya diğer frozen paketleyiciler
     if getattr(sys, 'frozen', False):
-        # Nuitka veya PyInstaller ile paketlenmiş EXE
         return Path(sys.executable).resolve().parent
-    else:
-        # Geliştirme ortamı
-        return Path(__file__).resolve().parent.parent
+    # Geliştirme ortamı
+    return Path(__file__).resolve().parent.parent
 
 
 def _hide_folder_windows(folder_path: Path):
@@ -80,29 +83,23 @@ class Settings:
 
     def _detect_bundled_tesseract(self):
         """
-        EXE modunda: yanındaki tesseract/ klasörünü otomatik algılar.
-        .env'de TESSERACT_PATH zaten tanımlıysa ona dokunmaz.
+        Hem EXE hem geliştirme modunda: yanındaki tesseract/ klasörünü
+        otomatik algılar. .env'de TESSERACT_PATH tanımlıysa ona dokunmaz.
         """
         if self.tesseract_path:
-            # .env ile açıkça belirtilmiş, üzerine yazma
             return
 
-        if getattr(sys, 'frozen', False):
-            # EXE modunda: EXE'nin yanındaki tesseract/ klasörü
-            bundled_exe = self.base_dir / "tesseract" / "tesseract.exe"
-            if bundled_exe.exists():
-                self.tesseract_path = str(bundled_exe)
-                os.environ["TESSDATA_PREFIX"] = str(
-                    self.base_dir / "tesseract" / "tessdata"
-                )
-        else:
-            # Geliştirme ortamında: proje kökündeki tesseract/ klasörünü dene
-            dev_bundled = self.base_dir / "tesseract" / "tesseract.exe"
-            if dev_bundled.exists():
-                self.tesseract_path = str(dev_bundled)
-                os.environ["TESSDATA_PREFIX"] = str(
-                    self.base_dir / "tesseract" / "tessdata"
-                )
+        # base_dir zaten _get_base_dir() ile doğru yere işaret ediyor
+        bundled_exe = self.base_dir / "tesseract" / "tesseract.exe"
+        if bundled_exe.exists():
+            self.tesseract_path = str(bundled_exe)
+            os.environ["TESSDATA_PREFIX"] = str(
+                self.base_dir / "tesseract" / "tessdata"
+            )
+            # pytesseract'ın da bulabilmesi için PATH'e ekle
+            tess_dir = str(self.base_dir / "tesseract")
+            if tess_dir not in os.environ.get("PATH", ""):
+                os.environ["PATH"] = tess_dir + os.pathsep + os.environ.get("PATH", "")
 
     def set_skipped_version(self, version: str):
         """Belirtilen sürümü 'atla' listesine ekler (.env dosyasına yazar)."""
