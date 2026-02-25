@@ -46,6 +46,9 @@ def run_nuitka():
         # Standalone: Python kurulumu gerektirmeyen, kendi başına çalışan klasör
         "--standalone",
 
+        # MinGW64 indirme sorusuna otomatik "evet" de
+        "--assume-yes-for-downloads",
+
         # PyQt6 plugin'i — Qt bileşenlerini dahil etmek için zorunlu
         "--enable-plugin=pyqt6",
 
@@ -67,7 +70,7 @@ def run_nuitka():
         "--include-package=docx",           # python-docx
         "--include-package=pdf2docx",
         "--include-package=openpyxl",
-        "--include-package=fpdf2",
+        "--include-package=fpdf",            # fpdf2 (PyPI ad: fpdf2, modül ad: fpdf)
         "--include-package=send2trash",
         "--include-package=dotenv",         # python-dotenv
         "--include-package=PIL",            # Pillow
@@ -188,8 +191,10 @@ def main():
     # Nuitka ile derle
     run_nuitka()
 
-    # Nuitka çıktısı: OUTPUT_DIR / APP_NAME + ".dist" klasörü
-    nuitka_out = OUTPUT_DIR / f"{APP_NAME}.dist"
+    # Nuitka çıktısı: OUTPUT_DIR / MAIN_SCRIPT_STEM + ".dist" klasörü
+    # (main.py -> main.dist, not PDFToolKit.dist)
+    stem = Path(MAIN_SCRIPT).stem  # "main"
+    nuitka_out = OUTPUT_DIR / f"{stem}.dist"
     if nuitka_out.exists() and not DIST_DIR.exists():
         nuitka_out.rename(DIST_DIR)
     elif nuitka_out.exists():
