@@ -16,23 +16,33 @@ Kapsamlı bir masaüstü PDF işleme uygulaması. PyQt6 tabanlı modern arayüz 
 
 ## Kurulum
 
-### Python Bağımlılıkları
+### Hızlı Kurulum (Önerilen)
+
+Hazır derlenmiş sürümü indirip doğrudan kullanabilirsiniz — Python veya başka bir kurulum gerekmez.
+
+1. [**Releases sayfasına gidin →**](https://github.com/hobibilgisi/PDFToolKit/releases/latest)
+2. `PDFToolKit_v0.2.0.zip` dosyasını indirin
+3. ZIP'i bir klasöre çıkarın
+4. `PDFToolKit.exe` dosyasına çift tıklayın
+
+> **Not:** İlk açılışta Windows SmartScreen uyarısı verebilir → "Daha fazla bilgi" → "Yine de çalıştır"
+
+### Kaynaktan Kurulum (Geliştirici)
+
+Kaynak koddan çalıştırmak istiyorsanız:
 
 ```bash
+git clone https://github.com/hobibilgisi/PDFToolKit.git
+cd PDFToolKit
 pip install -r requirements.txt
 ```
 
-### Harici Bağımlılıklar
+#### Harici Bağımlılıklar
 
-#### Tesseract OCR (OCR özelliği için)
+##### Tesseract OCR (OCR özelliği için)
 1. [Tesseract indirme sayfası](https://github.com/UB-Mannheim/tesseract/wiki) adresinden indirin
 2. Kurulumda "Add to PATH" seçeneğini işaretleyin
 3. `.env` dosyasındaki `TESSERACT_PATH` değerini güncelleyin
-
-#### Poppler (PDF→JPG dönüştürme için)
-1. [Poppler for Windows](https://github.com/oschwartz10612/poppler-windows/releases/) adresinden indirin
-2. Arşivi bir klasöre çıkarın
-3. `.env` dosyasındaki `POPPLER_PATH` değerini `bin` klasörüne yönlendirin
 
 ## Kullanım
 
