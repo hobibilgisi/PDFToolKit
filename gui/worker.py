@@ -108,30 +108,35 @@ class BatchWorker(QThread):
     def run(self) -> None:
         """Tüm dosyalar üzerinde sırayla işlem yapar."""
         _com_init()
-        results: list[Any] = []
-        errors: list[str] = []
-        total = len(self._file_args_list)
+        try:
+            results: list[Any] = []
+            errors: list[str] = []
+            total = len(self._file_args_list)
 
-        for i, item in enumerate(self._file_args_list):
-            args: tuple[Any, ...] = item.get("args", ())
-            kwargs: dict[str, Any] = item.get("kwargs", {})
-            label: str = item.get("label", f"Dosya {i + 1}")
+            for i, item in enumerate(self._file_args_list):
+                args: tuple[Any, ...] = item.get("args", ())
+                kwargs: dict[str, Any] = item.get("kwargs", {})
+                label: str = item.get("label", f"Dosya {i + 1}")
 
-            percent = int((i / total) * 100)
-            self.progress.emit(percent, f"{label} işleniyor... ({i + 1}/{total})")
+                percent = int((i / total) * 100)
+                self.progress.emit(percent, f"{label} işleniyor... ({i + 1}/{total})")
 
-            try:
-                result = self._func(*args, **kwargs)
-                results.append(result)
-            except Exception as e:
-                errors.append(f"{label}: {e}")
-                logger.error(f"Batch hatası — {label}: {e}")
+                try:
+                    result = self._func(*args, **kwargs)
+                    results.append(result)
+                except Exception as e:
+                    errors.append(f"{label}: {e}")
+                    logger.error(f"Batch hatası — {label}: {e}")
 
-        if errors:
-            self.error.emit(
-                f"{len(errors)} dosyada hata:\n" + "\n".join(errors)
-            )
-        else:
-            self.progress.emit(100, f"{len(results)}/{total} dosya işlendi")
-            self.finished.emit(results)
-        _com_uninit()
+            # Başarılı sonuçları her zaman gönder
+            if results:
+                self.progress.emit(100, f"{len(results)}/{total} dosya işlendi")
+                self.finished.emit(results)
+
+            # Hatalar varsa ayrıca bildir
+            if errors:
+                self.error.emit(
+                    f"{len(errors)} dosyada hata:\n" + "\n".join(errors)
+                )
+        finally:
+            _com_uninit()

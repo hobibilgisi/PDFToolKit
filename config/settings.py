@@ -85,11 +85,17 @@ class Settings:
         """
         Hem EXE hem geliştirme modunda: yanındaki tesseract/ klasörünü
         otomatik algılar. .env'de TESSERACT_PATH tanımlıysa ona dokunmaz.
+
+        Arama sırası:
+            1. .env → TESSERACT_PATH (zaten okundu)
+            2. base_dir/tesseract/tesseract.exe (gömülü)
+            3. Sistem PATH (shutil.which)
+            4. Bilinen Windows kurulum konumları
         """
         if self.tesseract_path:
             return
 
-        # base_dir zaten _get_base_dir() ile doğru yere işaret ediyor
+        # ── 1. Gömülü Tesseract ──
         bundled_exe = self.base_dir / "tesseract" / "tesseract.exe"
         if bundled_exe.exists():
             self.tesseract_path = str(bundled_exe)
@@ -100,6 +106,23 @@ class Settings:
             tess_dir = str(self.base_dir / "tesseract")
             if tess_dir not in os.environ.get("PATH", ""):
                 os.environ["PATH"] = tess_dir + os.pathsep + os.environ.get("PATH", "")
+            return
+
+        # ── 2. Sistem PATH ──
+        import shutil as _shutil
+        system_tess = _shutil.which("tesseract")
+        if system_tess:
+            self.tesseract_path = system_tess
+            return
+
+        # ── 3. Bilinen Windows konumları ──
+        for candidate in [
+            Path("C:/Program Files/Tesseract-OCR/tesseract.exe"),
+            Path("C:/Program Files (x86)/Tesseract-OCR/tesseract.exe"),
+        ]:
+            if candidate.exists():
+                self.tesseract_path = str(candidate)
+                return
 
     def set_skipped_version(self, version: str):
         """Belirtilen sürümü 'atla' listesine ekler (.env dosyasına yazar)."""

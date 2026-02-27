@@ -127,16 +127,16 @@ def download_update(zip_url: str, progress_callback: Callable[[int, int], None] 
 
 def apply_update(zip_path: Path) -> bool:
     """
-    İndirilen ZIP'ten yeni EXE'yi mevcut EXE'nin yerine koyar.
-    EXE modunda çalışır (geliştirme ortamında güvenli biçimde çıkar).
+    İndirilen ZIP'ten TÜM uygulama dosyalarını günceller.
+    Nuitka standalone çıktısı yüzlerce DLL/.pyd içerdiğinden
+    sadece EXE değiştirmek yetmez.
 
     Strateji:
         1. ZIP'i geçici klasöre çıkart
-        2. Yeni PDFToolKit.exe'yi bul
+        2. ZIP içindeki kök klasörü bul (PDFToolKit/)
         3. Mevcut EXE'yi .old olarak yedekle
-        4. Yeni EXE'yi yerine koy
-        (Windows'ta çalışan EXE'yi silemezsin; .old adıyla bırakılır,
-         sonraki başlatmada temizlenir.)
+        4. tesseract/ ve .pdf_data/ HARİÇ tüm dosyaları kopyala
+        (Kullanıcı verileri korunur, sadece program dosyaları güncellenir.)
 
     Returns:
         True — başarılı, kullanıcıdan yeniden başlatma istenmeli.
@@ -146,9 +146,13 @@ def apply_update(zip_path: Path) -> bool:
         logger.warning("apply_update yalnızca EXE modunda çalışır.")
         return False
 
-    current_exe = Path(sys.executable)
-    backup_exe  = current_exe.with_suffix(".exe.old")
+    current_exe = Path(sys.executable).resolve()
+    current_dir = current_exe.parent
+    backup_exe  = current_dir / "PDFToolKit.exe.old"
     extract_dir = zip_path.parent / "extracted"
+
+    # Güncelleme sırasında dokunulmayacak klasörler
+    SKIP_DIRS = {"tesseract", ".pdf_data"}
 
     try:
         # Önceki .old varsa temizle
@@ -159,21 +163,39 @@ def apply_update(zip_path: Path) -> bool:
         with zipfile.ZipFile(zip_path, "r") as zf:
             zf.extractall(extract_dir)
 
-        # Yeni EXE'yi bul (ZIP içinde PDFToolKit/ alt dizininde olabilir)
-        new_exe = None
-        for candidate in extract_dir.rglob("PDFToolKit.exe"):
-            new_exe = candidate
-            break
+        # ZIP içindeki PDFToolKit/ kök klasörünü bul
+        new_root = None
+        for candidate in extract_dir.iterdir():
+            if candidate.is_dir() and "PDFToolKit" in candidate.name:
+                new_root = candidate
+                break
+        if not new_root:
+            new_root = extract_dir
 
-        if not new_exe:
+        # Yeni EXE var mı kontrol et
+        new_exe = new_root / "PDFToolKit.exe"
+        if not new_exe.exists():
             logger.error("ZIP içinde PDFToolKit.exe bulunamadı.")
             return False
 
-        # Mevcut EXE'yi yedekle, yeni EXE'yi yerine koy
-        current_exe.rename(backup_exe)
-        shutil.copy2(new_exe, current_exe)
+        # Mevcut EXE'yi yedekle
+        if current_exe.exists():
+            current_exe.rename(backup_exe)
 
-        logger.info(f"Güncelleme uygulandı: {current_exe}")
+        # tesseract/ ve .pdf_data/ HARİÇ tüm dosyaları kopyala
+        for item in new_root.rglob("*"):
+            rel = item.relative_to(new_root)
+            # Atlanan klasörlerdeki dosyaları geç
+            if rel.parts and rel.parts[0] in SKIP_DIRS:
+                continue
+            dst = current_dir / rel
+            if item.is_dir():
+                dst.mkdir(parents=True, exist_ok=True)
+            else:
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(item, dst)
+
+        logger.info("Güncelleme tamamlandı, yeniden başlatma gerekli.")
         return True
 
     except Exception as e:

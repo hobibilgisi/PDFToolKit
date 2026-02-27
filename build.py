@@ -23,7 +23,7 @@ from datetime import datetime
 
 # ─── AYARLAR ────────────────────────────────────────────────────────────────
 APP_NAME    = "PDFToolKit"
-APP_VERSION = "0.2.0"
+APP_VERSION = "0.2.1"
 MAIN_SCRIPT = "main.py"
 
 # Çıktı OneDrive dışında olmalı! (senkronizasyon çakışmasını önler)
@@ -138,19 +138,16 @@ def copy_tesseract():
     if dst.exists():
         shutil.rmtree(dst)
 
-    # Yalnızca gereken dosyaları kopyala: tesseract.exe, DLL'ler, tessdata
-    dst.mkdir(parents=True)
-    (dst / "tessdata").mkdir()
-    # EXE
-    shutil.copy2(src / "tesseract.exe", dst / "tesseract.exe")
-    # DLL'ler
-    for dll in src.glob("*.dll"):
-        shutil.copy2(dll, dst / dll.name)
-    # Dil paketleri (sadece eng + tur + osd)
-    for lang in ("eng", "tur", "osd"):
-        td = src / "tessdata" / f"{lang}.traineddata"
-        if td.exists():
-            shutil.copy2(td, dst / "tessdata" / td.name)
+    # TÜM Tesseract kurulumunu kopyala (pdf.ttf, configs dahil)
+    shutil.copytree(src, dst)
+
+    # Boyut optimizasyonu: gereksiz dil paketlerini sil
+    keep_langs = {"eng", "tur", "osd"}
+    tessdata = dst / "tessdata"
+    if tessdata.exists():
+        for td in tessdata.glob("*.traineddata"):
+            if td.stem not in keep_langs:
+                td.unlink()
 
     tess_size = sum(f.stat().st_size for f in dst.rglob("*") if f.is_file()) / 1_048_576
     print(f"✅ Tesseract kopyalandı: {dst} ({tess_size:.0f} MB)")
