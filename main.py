@@ -18,8 +18,43 @@ from gui.splash_screen import SplashScreen
 from config import __version__
 
 
+def _create_desktop_shortcut():
+    """EXE modunda ilk çalıştırmada masaüstüne otomatik kısayol oluşturur."""
+    # Sadece frozen (EXE) modda çalışsın
+    if not getattr(sys, 'frozen', False) and not globals().get('__nuitka_binary_dir'):
+        return
+
+    try:
+        import win32com.client
+        from pathlib import Path
+
+        desktop = Path(os.path.expanduser("~/Desktop"))
+        lnk_path = desktop / "PDFToolKit.lnk"
+
+        # Zaten varsa tekrar oluşturma
+        if lnk_path.exists():
+            return
+
+        exe_path = Path(sys.executable).resolve()
+        icon_path = exe_path.parent / "icon.ico"
+
+        shell = win32com.client.Dispatch("WScript.Shell")
+        shortcut = shell.CreateShortCut(str(lnk_path))
+        shortcut.TargetPath = str(exe_path)
+        shortcut.WorkingDirectory = str(exe_path.parent)
+        shortcut.Description = "PDFToolKit — PDF İşleme Uygulaması"
+        if icon_path.exists():
+            shortcut.IconLocation = str(icon_path)
+        shortcut.save()
+    except Exception:
+        pass  # Sessizce geç — kısayol oluşturulamasa bile uygulama çalışsın
+
+
 def main():
     """Uygulamayı başlatır."""
+    # EXE modunda masaüstüne kısayol oluştur (ilk çalıştırma)
+    _create_desktop_shortcut()
+
     app = QApplication(sys.argv)
 
     # Uygulama bilgileri
