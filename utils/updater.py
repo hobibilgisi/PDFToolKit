@@ -41,13 +41,13 @@ def _version_tuple(v: str) -> tuple[int, ...]:
         return (0,)
 
 
-def check_for_update(current_version: str) -> tuple[str | None, str | None]:
+def check_for_update(current_version: str) -> tuple[str | None, str | None, str | None]:
     """
     GitHub Releases'daki son sürümü kontrol eder.
 
     Returns:
-        (latest_version, zip_download_url) — yeni sürüm varsa
-        (None, None)                        — güncel veya hata varsa
+        (latest_version, zip_download_url, release_name) — yeni sürüm varsa
+        (None, None, None)                                — güncel veya hata varsa
     """
     url = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/releases/latest"
     try:
@@ -58,11 +58,16 @@ def check_for_update(current_version: str) -> tuple[str | None, str | None]:
         with urllib.request.urlopen(req, timeout=5) as resp:
             data = json.loads(resp.read().decode("utf-8"))
 
+        # Draft veya prerelease ise güncelleme bildirme
+        if data.get("draft", False) or data.get("prerelease", False):
+            return None, None
+
         latest_tag = data.get("tag_name", "").lstrip("v")
         if not latest_tag:
             return None, None
 
         if _version_tuple(latest_tag) > _version_tuple(current_version):
+            release_name = data.get("name", "").strip()
             # ZIP asset'ini bul
             assets = data.get("assets", [])
             zip_url = None
@@ -74,12 +79,12 @@ def check_for_update(current_version: str) -> tuple[str | None, str | None]:
             # Asset yoksa release sayfasının kendisini döndür
             if not zip_url:
                 zip_url = data.get("html_url", "")
-            return latest_tag, zip_url
+            return latest_tag, zip_url, release_name
 
     except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, KeyError) as e:
         logger.debug(f"Güncelleme kontrolü başarısız (internet?: {e})")
 
-    return None, None
+    return None, None, None
 
 
 def download_update(zip_url: str, progress_callback: Callable[[int, int], None] | None = None) -> Path | None:
@@ -131,15 +136,18 @@ def apply_update(zip_path: Path) -> bool:
     Nuitka standalone çıktısı yüzlerce DLL/.pyd içerdiğinden
     sadece EXE değiştirmek yetmez.
 
-    Strateji:
+    Strateji (batch script yaklaşımı):
         1. ZIP'i geçici klasöre çıkart
         2. ZIP içindeki kök klasörü bul (PDFToolKit/)
-        3. Mevcut EXE'yi .old olarak yedekle
-        4. tesseract/ ve .pdf_data/ HARİÇ tüm dosyaları kopyala
-        (Kullanıcı verileri korunur, sadece program dosyaları güncellenir.)
+        3. Bir .cmd batch dosyası oluştur:
+           - Uygulamanın kapanmasını bekle
+           - tesseract/ ve .pdf_data/ HARİÇ tüm dosyaları kopyala
+           - Uygulamayı yeniden başlat
+           - Kendi kendini sil
+        4. Batch dosyasını başlat ve uygulamayı kapat
 
     Returns:
-        True — başarılı, kullanıcıdan yeniden başlatma istenmeli.
+        True — batch hazır, uygulama kapanmalı.
         False — hata oluştu.
     """
     if not getattr(sys, 'frozen', False):
@@ -148,17 +156,9 @@ def apply_update(zip_path: Path) -> bool:
 
     current_exe = Path(sys.executable).resolve()
     current_dir = current_exe.parent
-    backup_exe  = current_dir / "PDFToolKit.exe.old"
     extract_dir = zip_path.parent / "extracted"
 
-    # Güncelleme sırasında dokunulmayacak klasörler
-    SKIP_DIRS = {"tesseract", ".pdf_data"}
-
     try:
-        # Önceki .old varsa temizle
-        if backup_exe.exists():
-            backup_exe.unlink(missing_ok=True)
-
         # ZIP'i çıkart
         with zipfile.ZipFile(zip_path, "r") as zf:
             zf.extractall(extract_dir)
@@ -178,40 +178,82 @@ def apply_update(zip_path: Path) -> bool:
             logger.error("ZIP içinde PDFToolKit.exe bulunamadı.")
             return False
 
-        # Mevcut EXE'yi yedekle
-        if current_exe.exists():
-            current_exe.rename(backup_exe)
+        # Batch script oluştur
+        batch_path = zip_path.parent / "_pdftoolkit_update.cmd"
+        _write_update_batch(batch_path, new_root, current_dir, current_exe)
 
-        # tesseract/ ve .pdf_data/ HARİÇ tüm dosyaları kopyala
-        for item in new_root.rglob("*"):
-            rel = item.relative_to(new_root)
-            # Atlanan klasörlerdeki dosyaları geç
-            if rel.parts and rel.parts[0] in SKIP_DIRS:
-                continue
-            dst = current_dir / rel
-            if item.is_dir():
-                dst.mkdir(parents=True, exist_ok=True)
-            else:
-                dst.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(item, dst)
+        # Batch'i başlat (bağımsız süreç)
+        import subprocess
+        subprocess.Popen(
+            ["cmd.exe", "/c", str(batch_path)],
+            creationflags=subprocess.CREATE_NO_WINDOW | subprocess.DETACHED_PROCESS,
+            close_fds=True,
+        )
 
-        logger.info("Güncelleme tamamlandı, yeniden başlatma gerekli.")
+        logger.info("Güncelleme batch başlatıldı, uygulama kapanıyor.")
         return True
 
     except Exception as e:
         logger.error(f"Güncelleme uygulama hatası: {e}")
-        # Yedekten geri yükle
-        if backup_exe.exists() and not current_exe.exists():
-            backup_exe.rename(current_exe)
+        shutil.rmtree(extract_dir, ignore_errors=True)
         return False
 
-    finally:
-        # Geçici dosyaları temizle
-        shutil.rmtree(extract_dir, ignore_errors=True)
-        try:
-            zip_path.unlink(missing_ok=True)
-        except Exception:
-            pass
+
+def _write_update_batch(batch_path: Path, src_dir: Path, dst_dir: Path, exe_path: Path):
+    """
+    Güncelleme batch script dosyasını yazar.
+
+    Batch akışı:
+        1. PDFToolKit.exe kapanana kadar bekle (max 30s)
+        2. Dosyaları kopyala (tesseract/ ve .pdf_data/ hariç)
+        3. Uygulamayı yeniden başlat
+        4. Geçici dosyaları temizle
+    """
+    # Kaynak ve hedef yol — batch'te tırnak içi
+    src = str(src_dir)
+    dst = str(dst_dir)
+    exe = str(exe_path)
+    temp_root = str(batch_path.parent)  # extracted + zip dosyasının bulunduğu klasör
+
+    script = f'''@echo off
+chcp 65001 >nul
+title PDFToolKit Güncelleme
+
+:: Uygulamanın kapanmasını bekle (max 30 saniye)
+set /a count=0
+:WAIT_LOOP
+tasklist /FI "IMAGENAME eq PDFToolKit.exe" 2>nul | find /I "PDFToolKit.exe" >nul
+if errorlevel 1 goto COPY_FILES
+timeout /t 1 /nobreak >nul
+set /a count+=1
+if %count% GEQ 30 (
+    echo Uygulama 30 saniye icinde kapanamadi, guncelleme iptal.
+    goto CLEANUP
+)
+goto WAIT_LOOP
+
+:COPY_FILES
+:: 2 saniye ek bekleme (dosya kilitleri tam kalksin)
+timeout /t 2 /nobreak >nul
+
+:: Dosyalari kopyala (tesseract ve .pdf_data haric)
+xcopy "{src}\\*" "{dst}\\" /E /Y /I /EXCLUDE:{batch_path.parent / "_exclude.txt"}
+
+:: Uygulamayi yeniden baslat
+start "" "{exe}"
+
+:CLEANUP
+:: Gecici dosyalari temizle
+timeout /t 3 /nobreak >nul
+rd /S /Q "{temp_root}" 2>nul
+del "%~f0" 2>nul
+'''
+
+    # xcopy exclude listesi
+    exclude_path = batch_path.parent / "_exclude.txt"
+    exclude_path.write_text("\\tesseract\\\n\\.pdf_data\\\n", encoding="utf-8")
+
+    batch_path.write_text(script, encoding="utf-8")
 
 
 def cleanup_old_exe():
@@ -241,7 +283,7 @@ class UpdateChecker(QThread):
         check_done():               Kontrol bitti (güncelleme yok veya hata)
     """
 
-    update_available = pyqtSignal(str, str)
+    update_available = pyqtSignal(str, str, str)  # version, url, release_name
     check_done       = pyqtSignal()
 
     def __init__(self, current_version: str, skipped_version: str = "", parent: object | None = None):
@@ -250,11 +292,11 @@ class UpdateChecker(QThread):
         self._skipped  = skipped_version
 
     def run(self):
-        latest, url = check_for_update(self._current)
+        latest, url, release_name = check_for_update(self._current)
         if latest and url:
             # Kullanıcı bu sürümü daha önce "atla" demediyse bildir
             if latest != self._skipped:
-                self.update_available.emit(latest, url)
+                self.update_available.emit(latest, url, release_name or "")
                 return
         self.check_done.emit()
 

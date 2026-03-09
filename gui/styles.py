@@ -27,7 +27,9 @@ QPushButton {
     border-radius: 6px;
     padding: 8px 16px;
     font-weight: 500;
+    font-size: 14px;
     min-height: 32px;
+    qproperty-iconSize: 28px 28px;
 }
 
 QPushButton:hover {
@@ -318,5 +320,28 @@ QTabBar::tab:selected {
     background-color: #45475a;
     color: #89b4fa;
     border-bottom: 2px solid #89b4fa;
+}
+
+/* ===== Daraltılabilir Grup Başlığı ===== */
+QPushButton#collapsibleToggle {
+    background-color: #313244;
+    color: #89b4fa;
+    border: 1px solid #45475a;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-weight: 600;
+    font-size: 13px;
+    text-align: left;
+    min-height: 32px;
+}
+
+QPushButton#collapsibleToggle:hover {
+    background-color: #45475a;
+    border-color: #89b4fa;
+}
+
+QPushButton#collapsibleToggle:checked {
+    background-color: #45475a;
+    border-color: #89b4fa;
 }
 """

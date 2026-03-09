@@ -15,10 +15,10 @@ import os
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QTableWidget, QTableWidgetItem,
     QPushButton, QHeaderView, QAbstractItemView, QLineEdit, QCheckBox,
-    QLabel, QMessageBox
+    QLabel, QMessageBox, QDialog, QDialogButtonBox, QScrollArea, QFormLayout
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QUrl
-from PyQt6.QtGui import QDragEnterEvent, QDropEvent
+from PyQt6.QtCore import Qt, pyqtSignal, QUrl, QMimeData
+from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QDrag
 
 from core.pdf_metadata import get_metadata
 from utils.file_utils import (
@@ -28,6 +28,31 @@ from utils.file_utils import (
 from config.settings import settings
 
 
+class _DragOutTable(QTableWidget):
+    """Dosyaları dışarıya sürükle-bırak ile taşımayı destekleyen tablo."""
+
+    def startDrag(self, supportedActions):
+        urls = []
+        seen = set()
+        for index in self.selectedIndexes():
+            row = index.row()
+            if row in seen:
+                continue
+            seen.add(row)
+            item = self.item(row, 2)  # Dosya Adı sütunu
+            if item:
+                path = item.data(Qt.ItemDataRole.UserRole)
+                if path and Path(path).exists():
+                    urls.append(QUrl.fromLocalFile(path))
+
+        if urls:
+            drag = QDrag(self)
+            mime_data = QMimeData()
+            mime_data.setUrls(urls)
+            drag.setMimeData(mime_data)
+            drag.exec(Qt.DropAction.CopyAction)
+
+
 class FileListWidget(QWidget):
     """Dosya listesi bileşeni — tablo yapısı."""
 
@@ -35,11 +60,12 @@ class FileListWidget(QWidget):
 
     COLUMNS = ["☑", "Sıra", "Dosya Adı", "Tür", "Sayfa", "Sayfa Seçimi", "Boyut", ""]
 
-    def __init__(self, title="📁 Dosyalar", directory=None, accept_all_formats=False, allow_drop=True, parent=None):
+    def __init__(self, title="📁 Dosyalar", directory=None, accept_all_formats=False, allow_drop=True, allow_drag_out=False, parent=None):
         super().__init__(parent)
         self.list_title = title
         self.directory = Path(directory) if directory else settings.input_dir
         self.accept_all_formats = accept_all_formats
+        self.allow_drag_out = allow_drag_out
         self.setAcceptDrops(allow_drop)
         self.all_selected = False  # Tümünü seç durumu
         self._setup_ui()
@@ -61,18 +87,24 @@ class FileListWidget(QWidget):
         layout.addLayout(header_layout)
 
         # Tablo
-        self.table = QTableWidget()
+        if self.allow_drag_out:
+            self.table = _DragOutTable()
+        else:
+            self.table = QTableWidget()
         self.table.setColumnCount(len(self.COLUMNS))
         self.table.setHorizontalHeaderLabels(self.COLUMNS)
         self.table.setAlternatingRowColors(True)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
 
-        # Tablo içi drag & drop (sıralama için)
+        # Tablo içi drag & drop
         self.table.setDragEnabled(True)
-        self.table.setAcceptDrops(False) # Dışarıdan drop desteğini ana widget'a veriyoruz
-        self.table.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
-        self.table.setDefaultDropAction(Qt.DropAction.MoveAction)
+        self.table.setAcceptDrops(False)
+        if self.allow_drag_out:
+            self.table.setDragDropMode(QAbstractItemView.DragDropMode.DragOnly)
+        else:
+            self.table.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
+            self.table.setDefaultDropAction(Qt.DropAction.MoveAction)
 
         # Sütun genişlikleri
         header = self.table.horizontalHeader()
@@ -201,12 +233,26 @@ class FileListWidget(QWidget):
         else:
             event.ignore()
 
+    # Windows MAX_PATH sınırı
+    _MAX_PATH = 255
+
     def refresh_files(self):
         """Belirtilen klasördeki dosyaları tarar ve tabloyu günceller."""
         if self.accept_all_formats:
             files = list_all_files(self.directory)
         else:
             files = list_pdf_files(self.directory)
+
+        # Uzun yol kontrolü — kullanıcıdan ad kısaltması iste
+        long_files = [f for f in files if len(str(f)) > self._MAX_PATH]
+        if long_files:
+            self._prompt_rename_long_paths(long_files)
+            # Yeniden tara (adlar değişmiş olabilir)
+            if self.accept_all_formats:
+                files = list_all_files(self.directory)
+            else:
+                files = list_pdf_files(self.directory)
+
         self.table.setRowCount(len(files))
 
         for row, file_path in enumerate(files):
@@ -365,6 +411,82 @@ class FileListWidget(QWidget):
         self.table.selectRow(target_row)
         self._update_order_numbers()
         self.files_changed.emit()
+
+    def _prompt_rename_long_paths(self, long_files: list[Path]):
+        """Yol uzunluğu 255 karakteri aşan dosyalar için yeniden adlandırma diyaloğu açar."""
+        import re
+
+        dlg = QDialog(self)
+        dlg.setWindowTitle("⚠️ Dosya Adı Çok Uzun")
+        dlg.setMinimumWidth(600)
+        dlg_layout = QVBoxLayout(dlg)
+
+        info = QLabel(
+            f"Aşağıdaki dosyaların yolu {self._MAX_PATH} karakteri aşıyor.\n"
+            "Windows bu dosyaları işleyemeyebilir. Lütfen daha kısa ad verin."
+        )
+        info.setWordWrap(True)
+        dlg_layout.addWidget(info)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        form_widget = QWidget()
+        form_layout = QFormLayout(form_widget)
+        form_layout.setSpacing(10)
+
+        edits: list[tuple[Path, QLineEdit]] = []
+        for fp in long_files:
+            current_label = QLabel(f"<b>{fp.name}</b><br>"
+                                   f"<small style='color:#6c7086;'>Yol: {len(str(fp))} karakter</small>")
+            current_label.setWordWrap(True)
+            current_label.setTextFormat(Qt.TextFormat.RichText)
+
+            edit = QLineEdit(fp.stem)
+            edit.setMinimumWidth(350)
+            # Maks uzunluğu hesapla: klasör yolu + "/" + ad + uzantı <= _MAX_PATH
+            dir_len = len(str(fp.parent)) + 1 + len(fp.suffix)
+            max_stem = max(10, self._MAX_PATH - dir_len)
+            edit.setMaxLength(max_stem)
+            edit.setToolTip(f"Uzantı ({fp.suffix}) otomatik eklenir.\nMaks {max_stem} karakter.")
+
+            form_layout.addRow(current_label, edit)
+            edits.append((fp, edit))
+
+        scroll.setWidget(form_widget)
+        dlg_layout.addWidget(scroll)
+
+        btn_box = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        btn_box.accepted.connect(dlg.accept)
+        btn_box.rejected.connect(dlg.reject)
+        dlg_layout.addWidget(btn_box)
+
+        if dlg.exec() != QDialog.DialogCode.Accepted:
+            return
+
+        # Geçersiz dosya adı karakterleri
+        invalid_chars = re.compile(r'[<>:"/\\|?*]')
+
+        for fp, edit in edits:
+            new_stem = edit.text().strip()
+            if not new_stem or new_stem == fp.stem:
+                continue
+            if invalid_chars.search(new_stem):
+                QMessageBox.warning(self, "Geçersiz Karakter",
+                                    f"'{new_stem}' geçersiz karakter içeriyor.\n"
+                                    f"Şu karakterler kullanılamaz: < > : \" / \\ | ? *\n"
+                                    f"Dosya adlandırılmadı: {fp.name}")
+                continue
+            new_path = fp.parent / f"{new_stem}{fp.suffix}"
+            if new_path.exists():
+                QMessageBox.warning(self, "Dosya Var",
+                                    f"'{new_path.name}' zaten mevcut.\nDosya adlandırılmadı.")
+                continue
+            try:
+                fp.rename(new_path)
+            except Exception as e:
+                QMessageBox.warning(self, "Hata", f"Yeniden adlandırılamadı:\n{e}")
 
     def _swap_rows(self, row1: int, row2: int):
         """İki satırın verilerini takas eder."""

@@ -2,6 +2,41 @@
 
 Tüm önemli değişiklikler bu dosyada belgelenecektir.
 
+## [0.4.0] - 2026-03-09
+
+### Eklendi
+- **Modern SVG ikon sistemi** — Tüm 27 buton için Catppuccin Mocha renk paletinde vektör ikonlar (`gui/icons.py`)
+- **Uygulama ikonu** — PDF döküman + dişli rozet tasarımlı pencere/görev çubuğu ikonu
+- **Splash ekranı** — Uygulama açılışında şeffaf GIF animasyonlu karşılama ekranı (`gui/splash_screen.py`)
+- **Dönüştürme modu diyaloğu** — Çoklu dosya dönüştürmede "ayrı ayrı" veya "birleştirerek" seçimi (`gui/convert_mode_dialog.py`)
+  - Sürükle-bırak ile dosya sıralaması
+  - Opsiyonel sayfa numaralandırma
+- **Birleştirme seçenekleri diyaloğu** — PDF birleştirme öncesi sıralama ve numaralandırma diyaloğu (`gui/merge_options_dialog.py`)
+  - Sürükle-bırak veya ▲/▼ ile dosya sıralaması
+  - Ardışık veya dosya bazlı numaralandırma modu seçimi
+- **Numaralandırma modu** — PDF birleştirmede iki seçenek:
+  - Ardışık numaralandırma (1, 2, 3, 4 …)
+  - Dosya bazlı numaralandırma (dosya 1 → 1, dosya 2 → 2 …)
+- **Çoklu dosya seçimi** — Word → PDF ve Excel → PDF dönüştürmeleri artık birden fazla dosya kabul ediyor
+
+### Değiştirildi
+- Tüm butonlardan emoji prefix'leri kaldırıldı — yerine SVG ikonlar eklendi
+- İkon boyutu 28px olarak ayarlandı (okunabilirlik ve tutarlılık)
+- Birleştirme ikonu rengi mavi → şeftali (`_PEACH`) — koyu tema üzerinde daha iyi görünürlük
+- Sayfa numarası fontu: 16pt gri → **20pt kalın kırmızı** (Arial Bold, `color=(1.0, 0.0, 0.0)`)
+- `_stamp_all_pages` fonksiyonu genişletildi: `mode` ve `page_counts` parametreleri eklendi
+
+### Düzeltildi
+- Çoklu JPG → PDF dönüştürmede otomatik birleştirme sorunu — artık kullanıcıya soruluyor
+- Birleştirme ikonu koyu tema üzerinde görünmüyor — renk değiştirildi
+
+### Proje Temizliği
+- `__pycache__/` dizinleri temizlendi
+- `assets/` klasöründen tek kullanımlık yardımcı scriptler kaldırıldı (`_analyze_gif.py`, `generate_icon.py`)
+- `docs/` klasörü sadeleştirildi: eski sohbet geçmişleri (`antigravity_talks/`), tamamlanmış planlar ve güncelliğini yitirmiş oturum dosyaları kaldırıldı
+- README.md kapsamlı kullanma kılavuzu olarak yeniden yazıldı
+- CHANGELOG.md tüm sürüm geçmişiyle güncellendi
+
 ## [0.2.0] - 2026-02-21
 
 ### Eklendi

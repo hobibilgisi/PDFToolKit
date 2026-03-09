@@ -23,8 +23,18 @@ from datetime import datetime
 
 # ─── AYARLAR ────────────────────────────────────────────────────────────────
 APP_NAME    = "PDFToolKit"
-APP_VERSION = "0.2.1"
 MAIN_SCRIPT = "main.py"
+
+# Sürüm numarasını config/__init__.py'den oku (tek kaynak)
+def _read_version() -> str:
+    ver_file = Path(__file__).parent.resolve() / "config" / "__init__.py"
+    with open(ver_file, encoding="utf-8") as f:
+        for line in f:
+            if line.startswith("__version__"):
+                return line.split("=", 1)[1].strip().strip('"').strip("'")
+    return "0.0.0"
+
+APP_VERSION = _read_version()
 
 # Çıktı OneDrive dışında olmalı! (senkronizasyon çakışmasını önler)
 OUTPUT_DIR  = Path("C:/Build/PDFToolKit")
@@ -55,8 +65,8 @@ def run_nuitka():
         # Konsol penceresi çıkmasın (GUI uygulaması)
         "--windows-console-mode=disable",
 
-        # Uygulama ikonu (varsa)
-        # "--windows-icon-from-ico=assets/icon.ico",
+        # Uygulama ikonu
+        f"--windows-icon-from-ico={PROJECT_DIR / 'assets' / 'icon.ico'}",
 
         # Şirket adı, versiyon bilgileri (EXE özelliklerinde görünür)
         f"--windows-product-name={APP_NAME}",
@@ -153,19 +163,61 @@ def copy_tesseract():
     print(f"✅ Tesseract kopyalandı: {dst} ({tess_size:.0f} MB)")
 
 
+def create_shortcut() -> Path | None:
+    """PDFToolKit.exe kısayolunu DIST_DIR'in üst klasörüne oluşturur.
+
+    ZIP çıkartıldığında kullanıcı EXE aramak zorunda kalmaz.
+    Kısayol, Windows'un relative path resolution sayesinde çalışır.
+    """
+    lnk_path = DIST_DIR.parent / f"{APP_NAME}.lnk"
+    try:
+        import win32com.client
+        shell = win32com.client.Dispatch("WScript.Shell")
+        shortcut = shell.CreateShortCut(str(lnk_path))
+        shortcut.TargetPath = str(DIST_DIR / f"{APP_NAME}.exe")
+        shortcut.WorkingDirectory = str(DIST_DIR)
+        shortcut.Description = "PDFToolKit - PDF İşleme Uygulaması"
+        icon_ico = DIST_DIR / "icon.ico"
+        if icon_ico.exists():
+            shortcut.IconLocation = str(icon_ico)
+        shortcut.save()
+        print(f"✅ Kısayol oluşturuldu: {lnk_path}")
+        return lnk_path
+    except Exception as e:
+        print(f"⚠️  Kısayol oluşturulamadı: {e}")
+        return None
+
+
 def copy_extras():
-    """README ve CHANGELOG'u dist klasörüne kopyalar."""
+    """README, CHANGELOG ve ikon dosyasını dist klasörüne kopyalar."""
     for filename in ("README.txt", "README.md", "CHANGELOG.txt", "CHANGELOG.md"):
         src = PROJECT_DIR / filename
         if src.exists():
             shutil.copy2(src, DIST_DIR / filename)
             print(f"✅ Kopyalandı: {filename}")
 
+    # İkon dosyasını kopyala (kısayol ve runtime için)
+    icon_src = PROJECT_DIR / "assets" / "icon.ico"
+    if icon_src.exists():
+        shutil.copy2(icon_src, DIST_DIR / "icon.ico")
+        print("✅ Kopyalandı: icon.ico")
+
+    # Splash logo kopyala
+    for splash_name in ("splash logo.gif", "splash.gif", "splash.png"):
+        splash_src = PROJECT_DIR / "assets" / splash_name
+        if splash_src.exists():
+            shutil.copy2(splash_src, DIST_DIR / splash_name)
+            print(f"✅ Kopyalandı: {splash_name}")
+            break
+
 
 def create_zip():
     """Dağıtım ZIP dosyasını oluşturur."""
     zip_name = f"{APP_NAME}_v{APP_VERSION}.zip"
     zip_path = OUTPUT_DIR / zip_name
+
+    # Kısayol oluştur (ZIP root seviyesine eklenecek)
+    lnk_path = create_shortcut()
 
     print(f"\n📦 ZIP oluşturuluyor: {zip_path}")
 
@@ -176,6 +228,14 @@ def create_zip():
                 continue
             arcname = Path(APP_NAME) / file.relative_to(DIST_DIR)
             zf.write(file, arcname)
+
+        # Kısayolu ZIP root seviyesine ekle
+        if lnk_path and lnk_path.exists():
+            zf.write(lnk_path, f"{APP_NAME}.lnk")
+
+    # Kısayol geçici dosyasını temizle
+    if lnk_path and lnk_path.exists():
+        lnk_path.unlink(missing_ok=True)
 
     size_mb = zip_path.stat().st_size / 1_048_576
     print(f"✅ ZIP hazır: {zip_path} ({size_mb:.1f} MB)")

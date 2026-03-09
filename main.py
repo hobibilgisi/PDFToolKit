@@ -12,8 +12,10 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from PyQt6.QtWidgets import QApplication, QProxyStyle, QStyle
-from PyQt6.QtGui import QFont
+from PyQt6.QtGui import QFont, QIcon
 from gui.main_window import MainWindow
+from gui.splash_screen import SplashScreen
+from config import __version__
 
 
 def main():
@@ -22,7 +24,15 @@ def main():
 
     # Uygulama bilgileri
     app.setApplicationName("PDFToolKit")
-    app.setApplicationVersion("0.2.0")
+    app.setApplicationVersion(__version__)
+
+    # Uygulama ikonu
+    from pathlib import Path
+    icon_path = Path(__file__).parent / "assets" / "icon.ico"
+    if not icon_path.exists():
+        icon_path = Path(sys.executable).parent / "icon.ico"
+    if icon_path.exists():
+        app.setWindowIcon(QIcon(str(icon_path)))
 
     # Varsayılan font
     font = QFont("Segoe UI", 10)
@@ -42,9 +52,16 @@ def main():
 
     app.setStyle(InstantTooltipStyle())
 
-    # Ana pencereyi oluştur ve göster
-    window = MainWindow()
-    window.show()
+    # Splash screen göster → bitince ana pencereyi aç
+    splash = SplashScreen()
+
+    def show_main_window():
+        window = MainWindow()
+        window.show()
+        # splash kapandıktan sonra window GC'ye gitmesin
+        app._main_window = window
+
+    splash.start(on_finished=show_main_window)
 
     sys.exit(app.exec())
 

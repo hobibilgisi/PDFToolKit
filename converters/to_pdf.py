@@ -380,3 +380,129 @@ def images_to_pdf(
 
     logger.info(f"{len(images)} görsel → PDF: {output_path}")
     return output_path
+
+
+# ─── Toplu Dönüştür ve Birleştir ─────────────────────────────────────────────
+
+def convert_and_merge(
+    file_paths: list[str | Path],
+    converter_func,
+    output_path: str | Path | None = None,
+    add_page_numbers: bool = False,
+    start_number: int = 1,
+) -> Path:
+    """
+    Birden fazla dosyayı önce ayrı ayrı PDF'e dönüştürür,
+    ardından tek bir PDF'de birleştirir.
+
+    Args:
+        file_paths: Dönüştürülecek dosya yolları (sıralı).
+        converter_func: Tek dosya dönüştürme fonksiyonu (path → Path).
+        output_path: Çıktı dosya yolu. None ise otomatik üretilir.
+        add_page_numbers: Sayfa numaralandırma yapılsın mı.
+        start_number: Numaralandırma başlangıç değeri.
+
+    Returns:
+        Oluşturulan birleşik PDF'nin Path nesnesi.
+    """
+    import tempfile
+    import shutil
+    from core.pdf_merger import merge_pdfs
+
+    if not file_paths:
+        raise ValueError("Dosya listesi boş")
+
+    if output_path is None:
+        output_path = generate_output_filename("birlesik", "", ".pdf")
+    else:
+        output_path = Path(output_path)
+
+    # Geçici klasörde ara PDF'leri oluştur
+    temp_dir = Path(tempfile.mkdtemp(prefix="pdftoolkit_"))
+    try:
+        temp_pdfs: list[Path] = []
+        for i, fp in enumerate(file_paths):
+            fp = Path(fp)
+            temp_out = temp_dir / f"{i:04d}_{fp.stem}.pdf"
+            converter_func(fp, temp_out)
+            temp_pdfs.append(temp_out)
+            logger.info(f"Ara dönüşüm ({i+1}/{len(file_paths)}): {fp.name}")
+
+        # Birleştir
+        file_list = [{"path": str(p), "pages": None} for p in temp_pdfs]
+        merge_pdfs(file_list, output_path)
+
+        # Numaralandırma
+        if add_page_numbers:
+            _stamp_all_pages(output_path, start_number)
+
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+    logger.info(
+        f"{len(file_paths)} dosya → tek PDF: {output_path}"
+        f"{' (numaralı)' if add_page_numbers else ''}"
+    )
+    return output_path
+
+
+def _stamp_all_pages(
+    pdf_path: Path,
+    start: int = 1,
+    mode: str = "sequential",
+    page_counts: list[int] | None = None,
+) -> None:
+    """PDF'deki her sayfaya sayfa numarası ekler.
+
+    Args:
+        pdf_path: Numaralandırılacak PDF dosyası.
+        start: Başlangıç numarası.
+        mode: "sequential" (ardışık) veya "per_document" (dosya bazlı).
+        page_counts: Her kaynak dosyanın sayfa sayıları (per_document modu için).
+    """
+    import fitz
+
+    doc = fitz.open(str(pdf_path))
+
+    # Arial Bold font dosyası
+    arial_bold = Path("C:/Windows/Fonts/arialbd.ttf")
+    arial_font = Path("C:/Windows/Fonts/arial.ttf")
+    if arial_bold.exists():
+        fontfile = str(arial_bold)
+        fontname = "arialbd"
+    elif arial_font.exists():
+        fontfile = str(arial_font)
+        fontname = "arial"
+    else:
+        fontfile = None
+        fontname = "helv"
+
+    # Per-document modunda her sayfanın numarasını önceden hesapla
+    if mode == "per_document" and page_counts:
+        page_numbers: list[int] = []
+        for doc_idx, count in enumerate(page_counts):
+            page_numbers.extend([start + doc_idx] * count)
+    else:
+        page_numbers = [start + i for i in range(len(doc))]
+
+    for i, page in enumerate(doc):
+        number = page_numbers[i] if i < len(page_numbers) else start + i
+        rect = page.rect
+        text_rect = fitz.Rect(
+            rect.width - 80, 8,
+            rect.width - 10, 38
+        )
+        shape = page.new_shape()
+        shape.insert_textbox(
+            text_rect,
+            str(number),
+            fontname=fontname,
+            fontfile=fontfile,
+            fontsize=20,
+            color=(1.0, 0.0, 0.0),
+            align=fitz.TEXT_ALIGN_RIGHT,
+        )
+        shape.commit(overlay=True)
+
+    doc.saveIncr()
+    doc.close()

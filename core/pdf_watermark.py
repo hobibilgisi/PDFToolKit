@@ -148,3 +148,64 @@ def add_watermark(
         f"'{pdf_path.name}' → filigran eklendi '{watermark_text}' → {output_path}"
     )
     return output_path
+
+
+def stamp_order_number(
+    pdf_path: str | Path,
+    order_number: int,
+    output_path: str | Path | None = None,
+) -> Path:
+    """
+    PDF'nin her sayfasının sağ üst köşesine sıra numarası damgalar.
+
+    Args:
+        pdf_path: Kaynak PDF dosyası.
+        order_number: Yazılacak sıra numarası.
+        output_path: Çıktı dosya yolu. None ise orijinal dosya üzerine yazılır.
+
+    Returns:
+        Oluşturulan PDF'nin Path nesnesi.
+    """
+    pdf_path = Path(pdf_path)
+    if not pdf_path.exists():
+        raise FileNotFoundError(f"Dosya bulunamadı: {pdf_path}")
+
+    fontfile = str(_ARIAL_FONT) if _ARIAL_FONT.exists() else None
+    fontname = "arial" if fontfile else "helv"
+
+    doc = fitz.open(str(pdf_path))
+    number_text = str(order_number)
+
+    for page in doc:
+        rect = page.rect
+        # Sağ üst köşede sağa hizalı metin kutusu (margin: 10px)
+        text_rect = fitz.Rect(
+            rect.width - 80, 8,
+            rect.width - 10, 35
+        )
+        shape = page.new_shape()
+        shape.insert_textbox(
+            text_rect,
+            number_text,
+            fontname=fontname,
+            fontfile=fontfile,
+            fontsize=20,
+            color=(1.0, 0.0, 0.0),  # Kırmızı
+            align=fitz.TEXT_ALIGN_RIGHT,
+        )
+        shape.commit(overlay=True)
+
+    # Çıktı yolu
+    if output_path is None:
+        save_path = pdf_path
+    else:
+        save_path = Path(output_path)
+
+    if save_path == pdf_path:
+        doc.saveIncr()
+    else:
+        doc.save(str(save_path))
+    doc.close()
+
+    logger.info(f"'{pdf_path.name}' → sıra numarası {order_number} damgalandı")
+    return save_path

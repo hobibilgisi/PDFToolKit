@@ -4,13 +4,16 @@ PDFToolKit - Ana Pencere
 Uygulamanın ana penceresi: sol panel (dosya listeleri) + sağ panel (işlem butonları).
 """
 
+from pathlib import Path
+import sys
+
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
     QSplitter, QScrollArea, QMenuBar, QMenu, QDialog,
     QTextBrowser, QDialogButtonBox, QMessageBox, QPushButton, QApplication
 )
 from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtGui import QAction
+from PyQt6.QtGui import QAction, QIcon
 
 from gui.file_list_widget import FileListWidget
 from gui.action_panel import ActionPanel
@@ -29,6 +32,14 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("PDFToolKit")
         self.setMinimumSize(1000, 650)
         self.resize(1200, 750)
+
+        # Uygulama ikonu
+        icon_path = Path(__file__).parent.parent / "assets" / "icon.ico"
+        if not icon_path.exists():
+            # EXE dağıtımında icon.ico, exe ile aynı klasörde
+            icon_path = Path(sys.executable).parent / "icon.ico"
+        if icon_path.exists():
+            self.setWindowIcon(QIcon(str(icon_path)))
 
         # Önceki güncelleme dosyasını temizle (.exe.old)
         cleanup_old_exe()
@@ -99,7 +110,7 @@ class MainWindow(QMainWindow):
             title="📥 Input", directory=settings.input_dir, accept_all_formats=True
         )
         self.output_list = FileListWidget(
-            title="📤 Output", directory=settings.output_dir, accept_all_formats=True, allow_drop=False
+            title="📤 Output", directory=settings.output_dir, accept_all_formats=True, allow_drop=False, allow_drag_out=True
         )
         
         left_splitter.addWidget(self.input_list)
@@ -127,6 +138,13 @@ class MainWindow(QMainWindow):
         # Durum çubuğu
         self.status_bar = StatusBar()
         self.setStatusBar(self.status_bar)
+
+        # Mevcut sürüm etiketi (durum çubuğunda kalıcı)
+        from PyQt6.QtWidgets import QLabel
+        current_ver = QApplication.applicationVersion()
+        self._version_label = QLabel(f"PDFToolKit v{current_ver}")
+        self._version_label.setStyleSheet("color: #6c7086; font-size: 11px; padding: 0 6px;")
+        self.status_bar.addPermanentWidget(self._version_label)
 
         # Güncelleme bildirimi butonu (başlangıçta gizli)
         self._update_btn = QPushButton("")
@@ -199,11 +217,17 @@ class MainWindow(QMainWindow):
         checker.update_available.connect(self._on_update_available)
         checker.start()
 
-    def _on_update_available(self, version: str, url: str):
+    def _on_update_available(self, version: str, url: str, release_name: str):
         """Yeni sürüm bulununca durum çubuğuna bildirim düğmesi gösterir."""
         self._pending_update_version = version
         self._pending_update_url = url
-        self._update_btn.setText(f"🔄 Yeni sürüm: v{version} — Güncelle")
+        self._pending_release_name = release_name
+        current_ver = QApplication.applicationVersion()
+        btn_text = f"v{current_ver} → v{version}"
+        if release_name:
+            btn_text += f" ({release_name})"
+        btn_text += " — Güncelle"
+        self._update_btn.setText(f"🔄 {btn_text}")
         self._update_btn.setVisible(True)
 
     def _on_update_btn_clicked(self):
@@ -262,11 +286,13 @@ class MainWindow(QMainWindow):
         if ok:
             QMessageBox.information(
                 self,
-                "Güncelleme Tamamlandı",
-                f"<b>PDFToolKit v{self._pending_update_version}</b> başarıyla yüklendi.<br><br>"
-                "Değişikliklerin geçerli olması için uygulamayı kapatıp yeniden açın."
+                "Güncelleme Başlatıldı",
+                f"<b>PDFToolKit v{self._pending_update_version}</b> güncelleme hazırlandı.<br><br>"
+                "Uygulama şimdi kapanacak ve güncelleme uygulanacak.<br>"
+                "İşlem bitince uygulama otomatik olarak yeniden başlayacak."
             )
-            self._update_btn.setVisible(False)
+            # Uygulamayı kapat — batch script devralacak
+            QApplication.quit()
         else:
             self.status_bar.show_error("Güncelleme uygulanamadı.")
             self._update_btn.setEnabled(True)
@@ -275,10 +301,11 @@ class MainWindow(QMainWindow):
 
     def _on_about(self):
         """Hakkında diyaloğu."""
+        ver = QApplication.applicationVersion()
         QMessageBox.about(
             self,
             "PDFToolKit Hakkında",
-            "<h3>PDFToolKit v0.2.0</h3>"
+            f"<h3>PDFToolKit v{ver}</h3>"
             "<p>Kapsamlı masaüstü PDF işleme uygulaması.</p>"
             "<p><b>Geliştirme:</b> Python 3.11+ | PyQt6 | pypdf</p>"
             "<p><b>Lisans:</b> MIT</p>"
