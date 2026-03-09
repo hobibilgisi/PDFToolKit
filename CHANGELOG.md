@@ -2,6 +2,13 @@
 
 Tüm önemli değişiklikler bu dosyada belgelenecektir.
 
+## [0.4.1] - 2026-03-09
+
+### Değiştirildi
+- **Yeni uygulama ikonu** — 3D PDF Tool Kit tasarımı (EXE, görev çubuğu, masaüstü kısayolu)
+
+---
+
 ## [0.4.0] - 2026-03-09
 
 ### Eklendi
