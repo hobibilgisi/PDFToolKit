@@ -98,14 +98,16 @@ class SplashScreen(QWidget):
             assets / "splash.png",
             assets / "icon.png",
         ]
-        if getattr(sys, "frozen", False):
-            exe_dir = Path(sys.executable).parent
-            candidates = [
-                exe_dir / "splash logo.gif",
-                exe_dir / "splash.gif",
-                exe_dir / "splash.png",
-                exe_dir / "icon.png",
-            ] + candidates
+
+        # Paketlenmiş uygulama desteği (Nuitka standalone, PyInstaller vb.)
+        # exe dizininde de ara — geliştirme modunda zararsız (Python.exe dizininde dosya yok)
+        exe_dir = Path(sys.executable).parent
+        candidates = [
+            exe_dir / "splash logo.gif",
+            exe_dir / "splash.gif",
+            exe_dir / "splash.png",
+            exe_dir / "icon.png",
+        ] + candidates
 
         for c in candidates:
             if c.exists():
@@ -114,7 +116,10 @@ class SplashScreen(QWidget):
 
     # ── GIF (animasyonlu — Pillow ile RGBA) ────────────────────────────
     def _setup_gif(self, path: Path):
-        self._frames, self._durations = _load_gif_frames(path)
+        try:
+            self._frames, self._durations = _load_gif_frames(path)
+        except Exception:
+            self._frames, self._durations = [], []
         if not self._frames:
             self._setup_static(path)
             return

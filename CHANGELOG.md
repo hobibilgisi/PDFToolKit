@@ -2,6 +2,14 @@
 
 Tüm önemli değişiklikler bu dosyada belgelenecektir.
 
+## [0.4.2] - 2026-03-16
+
+### Düzeltildi
+- **Splash ekranı paketlenmiş uygulamada açılmıyor** — Logo dosyası arama mantığı düzeltildi; Nuitka standalone modunda exe dizini her zaman kontrol ediliyor
+- **GIF yükleme hatasında çökme** — Pillow/numpy hatası olduğunda statik logo moduna düşüyor
+
+---
+
 ## [0.4.1] - 2026-03-09
 
 ### Değiştirildi
