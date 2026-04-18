@@ -137,7 +137,6 @@ PDFToolKit/
 ├── main.py                 # Uygulama giriş noktası
 ├── build.py                # Nuitka derleme scripti
 ├── requirements.txt        # Python bağımlılıkları
-├── CHANGELOG.md            # Sürüm geçmişi
 ├── assets/                 # İkon ve görsel dosyalar
 │   ├── icon.ico
 │   ├── icon.png

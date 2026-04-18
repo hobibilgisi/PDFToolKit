@@ -96,7 +96,6 @@ class ActionPanel(QWidget):
 
         self.merge_btn = QPushButton("Birleştir")
         self.merge_btn.setIcon(icon("merge"))
-        self.merge_btn.setObjectName("primaryButton")
         self.merge_btn.setToolTip("Seçili PDF dosyalarını sırasıyla tek bir PDF'de birleştirir.\nEn az 2 dosya seçin. Sayfa seçimi yapabilirsiniz.")
         self.merge_btn.clicked.connect(self._on_merge)
         pdf_layout.addWidget(self.merge_btn)

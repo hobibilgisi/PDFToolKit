@@ -23,7 +23,7 @@ def _create_desktop_shortcut():
     # Sadece frozen (EXE) modda çalışsın
     if not getattr(sys, 'frozen', False) and not globals().get('__nuitka_binary_dir'):
         return
-
+ 
     try:
         import win32com.client
         from pathlib import Path

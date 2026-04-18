@@ -83,7 +83,6 @@ PDFToolKit/
 ├── main.py                 # Uygulama giriş noktası (QApplication + MainWindow)
 ├── build.py                # Nuitka derleme scripti (EXE + ZIP üretir)
 ├── requirements.txt        # Python bağımlılıkları
-├── CHANGELOG.md            # Sürüm değişiklik geçmişi
 ├── README.md               # Kullanma kılavuzu
 ├── .env.example            # Ortam değişkenleri şablonu
 ├── .gitignore
@@ -151,8 +150,10 @@ PDFToolKit/
 │       ├── osd.traineddata
 │       └── configs/
 │
-└── docs/                   # Bu dosyanın bulunduğu klasör
-    └── PROJECT_GUIDE.md    # ← BU DOSYA
+└── docs/                   # Proje dokumantasyon klasoru
+    ├── PROJECT_GUIDE.md    # Proje rehberi
+    ├── WORK_LOG.md         # Gerceklesen islemlerin kurumsal kaydi
+    └── yapılacaklar.md     # Planlanan degisiklik listesi
 ```
 
 ---
@@ -245,20 +246,20 @@ def _com_uninit(self):
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│  Menü Çubuğu  [Dosya]  [Düzen]  [Yardım]  [🔄]    │
+│  Menü Çubuğu  [Dosya]  [Düzen]  [Yardım]  [🔄]     │
 ├───────────────────────────┬─────────────────────────┤
 │  Sol Panel (Splitter)     │  Sağ Panel              │
 │  ┌───────────────────┐    │  ┌───────────────────┐  │
-│  │  Input Tablosu     │    │  │  PDF İşlemleri    │  │
-│  │  (FileListWidget)  │    │  │  (9 buton)        │  │
-│  │  - ☑ Dosya adı     │    │  │  Dönüştürme ▶    │  │
-│  │  - Sayfa sayısı    │    │  │  (6 buton)        │  │
-│  │  - Boyut           │    │  │  İşlemler ▶       │  │
-│  │  - Sayfa seçimi    │    │  │  (7 buton)        │  │
+│  │  Input Tablosu    │    │  │  PDF İşlemleri    │  │
+│  │  (FileListWidget) │    │  │  (9 buton)        │  │
+│  │  - ☑ Dosya adı    │    │  │  Dönüştürme ▶    │  │
+│  │  - Sayfa sayısı   │    │  │  (6 buton)        │  │
+│  │  - Boyut          │    │  │  İşlemler ▶      │  │
+│  │  - Sayfa seçimi   │    │  │  (7 buton)        │  │
 │  ├───────────────────┤    │  │  Dosya Yönetimi   │  │
-│  │  Output Tablosu    │    │  │  (4 buton)        │  │
-│  │  (_DragOutTable)   │    │  └───────────────────┘  │
-│  └───────────────────┘    │                          │
+│  │  Output Tablosu   │    │  │  (4 buton)        │  │
+│  │  (_DragOutTable)  │    │  └───────────────────┘  │
+│  └───────────────────┘    │                         │
 ├───────────────────────────┴─────────────────────────┤
 │  StatusBar  [Mesaj]  [Progress]  [PDFToolKit v0.4.0]│
 └─────────────────────────────────────────────────────┘
@@ -526,9 +527,9 @@ Hızlı çift tıklamada yanlış satır taşınabilir. Lambda'lar dinamik row i
    - `docs/` sadeleştirildi: `antigravity_talks/`, `implementation_plan.md`, `PAKETLEME_OTURUMU.md`, `task.md` silindi
 
 3. **Dokümantasyon güncellendi:**
-   - CHANGELOG.md → v0.4.0 eklendi
-   - README.md → kapsamlı kullanma kılavuzuna dönüştürüldü
-   - Sürüm → 0.4.0
+    - README.md → kapsamlı kullanma kılavuzuna dönüştürüldü
+    - sürüm geçmişi daha sonra WORK_LOG içine taşınacak şekilde toparlandı
+    - Sürüm → 0.4.0
 
 ### Oturum: 2026-03-08 (v0.3.0)
 
@@ -577,21 +578,23 @@ Hızlı çift tıklamada yanlış satır taşınabilir. Lambda'lar dinamik row i
 
 ### Bu dosyayı kullanan AI için hızlı başlangıç
 
-1. **Sürüm:** `config/__init__.py` → `__version__` (tek kaynak)
-2. **Test:** `python -m pytest tests/ -v` (35 test, <1 saniye)
-3. **Import kontrolü:** `python -c "from gui.action_panel import ActionPanel; print('OK')"`
-4. **Uygulama başlatma:** `python main.py` (`.venv` aktif olmalı)
-5. **GUI yapısı:** `action_panel.py` tüm buton handler'larını, `main_window.py` ana pencereyi yönetir
-6. **Değişiklik yaparken:**
+1. **Ilk okuma:** once `docs/yapılacaklar.md`, sonra `docs/WORK_LOG.md` dosyasini oku
+2. **Bu rehberi ne zaman oku:** mimari, paketleme, dagitim veya genis kapsamli davranis degisikligi varsa bu dosyaya gec
+3. **Sürüm:** `config/__init__.py` → `__version__` (tek kaynak)
+4. **Test:** `python -m pytest tests/ -v` (35 test, <1 saniye)
+5. **Import kontrolü:** `python -c "from gui.action_panel import ActionPanel; print('OK')"`
+6. **Uygulama başlatma:** `python main.py` (`.venv` aktif olmalı)
+7. **GUI yapısı:** `action_panel.py` tüm buton handler'larını, `main_window.py` ana pencereyi yönetir
+8. **Değişiklik yaparken:**
    - `core/` ve `utils/` içine PyQt6 import'u ekleme
    - `_run_worker()` pattern'ini kullan, try/except yazma
    - Yeni buton eklerken `gui/icons.py`'ye ikon ekle
-   - CHANGELOG.md'yi güncelle
+    - kullanıcıya yansıyan önemli değişikliklerde `docs/WORK_LOG.md` icindeki surum gecmisini guncelle
    - `config/__init__.py`'de sürümü artır
 
 ### Kullanıcı talimatları
 
-> Adımlarla ilerle, onay alarak ilerle, kontroller yaparak ilerle. Testleri tests/ klasörüne kaydet. Programın mevcut işlerliğini bozma. İlerlemeyi log dosyasına kaydet.
+> Adimlarla ilerle, onay alarak ilerle, kontroller yaparak ilerle. Her goreve docs/yapılacaklar.md ve docs/WORK_LOG.md okuyarak basla. Testleri tests/ klasorune kaydet. Programin mevcut islerligini bozma. Ilerlemeyi log dosyasina kaydet.
 
 ### Önemli dosya ilişkileri
 
